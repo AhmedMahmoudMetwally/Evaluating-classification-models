@@ -1,32 +1,31 @@
-# Import required libraries
+
+# === 1. Import required libraries ===
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.model_selection import train_test_split
+
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.tree import DecisionTreeClassifier, plot_tree
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_curve, auc
 from sklearn.utils import resample
 
-# Set up matplotlib to display plots
+# === 2. Set up matplotlib and seaborn ===
 plt.ion()
 plt.close('all')
-
-# Set style for plots
 sns.set_theme(style="whitegrid")
 plt.rcParams['figure.dpi'] = 100
 plt.rcParams['savefig.dpi'] = 300
 
-# Load the dataset
+# === 3. Load the dataset ===
 file_path = r"D:\Machine Learning\magic04.data"
-
 column_names = ['fLength', 'fWidth', 'fSize', 'fConc', 'fConc1', 'fAsym',
                 'fM3Long', 'fM3Trans', 'fAlpha', 'fDist', 'class']
 data = pd.read_csv(file_path, header=None, names=column_names)
 
-# 1. Data Exploration and Visualization
+# === 4. Data Exploration and Visualization ===
 print("\n=== Data Exploration ===")
 print("Dataset shape:", data.shape)
 print("\nClass distribution:")
@@ -39,7 +38,7 @@ plt.tight_layout()
 plt.savefig('class_distribution.png')
 plt.show()
 
-# 2. Data Balancing
+# === 5. Data Balancing ===
 df_gamma = data[data['class'] == 'g']
 df_hadron = data[data['class'] == 'h']
 
@@ -55,13 +54,15 @@ plt.show()
 
 balanced_data['class'] = balanced_data['class'].map({'h': 0, 'g': 1})
 
-# 3. Data Splitting
+# === 6. Data Splitting ===
 X = balanced_data.drop('class', axis=1)
 y = balanced_data['class']
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
-# 4. Model Training and Evaluation
+# === 7. Helper Functions ===
+
 def evaluate_model(model, X_test, y_test, model_name):
+    """Evaluate model performance and plot confusion matrix and ROC curve"""
     y_pred = model.predict(X_test)
     y_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, "predict_proba") else None
 
@@ -83,6 +84,7 @@ def evaluate_model(model, X_test, y_test, model_name):
     plt.savefig(f'confusion_matrix_{model_name.lower().replace(" ", "_")}.png')
     plt.show()
 
+    # Plot ROC curve
     if y_proba is not None:
         fpr, tpr, _ = roc_curve(y_test, y_proba)
         roc_auc = auc(fpr, tpr)
@@ -102,13 +104,21 @@ def evaluate_model(model, X_test, y_test, model_name):
 
     return metrics
 
-# Initialize results storage
+def tune_model(model, param_grid, X_train, y_train):
+    """Perform Grid Search CV and return the best estimator"""
+    grid = GridSearchCV(model, param_grid, cv=5, scoring='f1', n_jobs=-1)
+    grid.fit(X_train, y_train)
+    print(f"Best parameters: {grid.best_params_}")
+    return grid.best_estimator_
+
+# === 8. Model Training and Evaluation ===
 results = []
 
-# a. Decision Tree
+# a. Decision Tree مع Hyperparameter Tuning
 print("\n=== Decision Tree ===")
-dt = DecisionTreeClassifier(max_depth=3, random_state=42)
-dt.fit(X_train, y_train)
+dt_params = {'max_depth': [2, 3, 4, 5], 'min_samples_split': [2, 5, 10]}
+dt_base = DecisionTreeClassifier(random_state=42)
+dt = tune_model(dt_base, dt_params, X_train, y_train)
 
 plt.figure(figsize=(20, 10))
 plot_tree(dt, feature_names=X.columns, class_names=['Hadron', 'Gamma'], filled=True, rounded=True)
@@ -123,10 +133,11 @@ for metric, value in dt_metrics.items():
         print(f"{metric}: {value:.4f}" if isinstance(value, float) else f"{metric}: {value}")
 results.append({'Model': 'Decision Tree', **dt_metrics})
 
-# b. AdaBoost
+# b. AdaBoost مع Hyperparameter Tuning
 print("\n=== AdaBoost ===")
-ab = AdaBoostClassifier(n_estimators=100, random_state=42)
-ab.fit(X_train, y_train)
+ab_params = {'n_estimators': [50, 100, 150], 'learning_rate': [0.5, 1.0, 1.5]}
+ab_base = AdaBoostClassifier(random_state=42)
+ab = tune_model(ab_base, ab_params, X_train, y_train)
 
 plt.figure(figsize=(10, 6))
 pd.Series(ab.feature_importances_, index=X.columns).sort_values().plot(kind='barh')
@@ -141,10 +152,11 @@ for metric, value in ab_metrics.items():
         print(f"{metric}: {value:.4f}" if isinstance(value, float) else f"{metric}: {value}")
 results.append({'Model': 'AdaBoost', **ab_metrics})
 
-# c. Random Forest
+# c. Random Forest مع Hyperparameter Tuning
 print("\n=== Random Forest ===")
-rf = RandomForestClassifier(n_estimators=100, random_state=42)
-rf.fit(X_train, y_train)
+rf_params = {'n_estimators': [50, 100], 'max_depth': [None, 5, 10], 'min_samples_split': [2, 5]}
+rf_base = RandomForestClassifier(random_state=42)
+rf = tune_model(rf_base, rf_params, X_train, y_train)
 
 plt.figure(figsize=(10, 6))
 pd.Series(rf.feature_importances_, index=X.columns).sort_values().plot(kind='barh')
@@ -159,7 +171,7 @@ for metric, value in rf_metrics.items():
         print(f"{metric}: {value:.4f}" if isinstance(value, float) else f"{metric}: {value}")
 results.append({'Model': 'Random Forest', **rf_metrics})
 
-# d. Naive Bayes
+# d. Naive Bayes (بدون Tuning)
 print("\n=== Naive Bayes ===")
 nb = GaussianNB()
 nb.fit(X_train, y_train)
@@ -170,7 +182,7 @@ for metric, value in nb_metrics.items():
         print(f"{metric}: {value:.4f}" if isinstance(value, float) else f"{metric}: {value}")
 results.append({'Model': 'Naive Bayes', **nb_metrics})
 
-# 5. Results Comparison
+# === 9. Results Comparison ===
 results_df = pd.DataFrame(results)
 
 plt.figure(figsize=(12, 6))
