@@ -114,7 +114,7 @@ def tune_model(model, param_grid, X_train, y_train):
 # === 8. Model Training and Evaluation ===
 results = []
 
-# a. Decision Tree مع Hyperparameter Tuning
+# a. Decision Tree & Hyperparameter Tuning
 print("\n=== Decision Tree ===")
 dt_params = {'max_depth': [2, 3, 4, 5], 'min_samples_split': [2, 5, 10]}
 dt_base = DecisionTreeClassifier(random_state=42)
@@ -133,7 +133,7 @@ for metric, value in dt_metrics.items():
         print(f"{metric}: {value:.4f}" if isinstance(value, float) else f"{metric}: {value}")
 results.append({'Model': 'Decision Tree', **dt_metrics})
 
-# b. AdaBoost مع Hyperparameter Tuning
+# b. AdaBoost & Hyperparameter Tuning
 print("\n=== AdaBoost ===")
 ab_params = {'n_estimators': [50, 100, 150], 'learning_rate': [0.5, 1.0, 1.5]}
 ab_base = AdaBoostClassifier(random_state=42)
@@ -152,7 +152,7 @@ for metric, value in ab_metrics.items():
         print(f"{metric}: {value:.4f}" if isinstance(value, float) else f"{metric}: {value}")
 results.append({'Model': 'AdaBoost', **ab_metrics})
 
-# c. Random Forest مع Hyperparameter Tuning
+# c. Random Forest & Hyperparameter Tuning
 print("\n=== Random Forest ===")
 rf_params = {'n_estimators': [50, 100], 'max_depth': [None, 5, 10], 'min_samples_split': [2, 5]}
 rf_base = RandomForestClassifier(random_state=42)
@@ -171,7 +171,7 @@ for metric, value in rf_metrics.items():
         print(f"{metric}: {value:.4f}" if isinstance(value, float) else f"{metric}: {value}")
 results.append({'Model': 'Random Forest', **rf_metrics})
 
-# d. Naive Bayes (بدون Tuning)
+# d. Naive Bayes (without Tuning)
 print("\n=== Naive Bayes ===")
 nb = GaussianNB()
 nb.fit(X_train, y_train)
