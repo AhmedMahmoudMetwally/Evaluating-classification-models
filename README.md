@@ -9,7 +9,7 @@
  models with each other. 
 
 
-## ### ✅ **Objectives of the Code**
+ ✅ **Objectives of the Code**
 
 This Python code is designed to perform a complete **classification analysis** on the **MAGIC Gamma Telescope dataset**. The main objectives are:
 
