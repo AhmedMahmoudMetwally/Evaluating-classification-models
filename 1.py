@@ -1,0 +1,192 @@
+# Import required libraries
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_curve, auc
+from sklearn.utils import resample
+
+# Set up matplotlib to display plots
+plt.ion()
+plt.close('all')
+
+# Set style for plots
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.dpi'] = 100
+plt.rcParams['savefig.dpi'] = 300
+
+# Load the dataset
+file_path = r"D:\Machine Learning\magic04.data"
+
+column_names = ['fLength', 'fWidth', 'fSize', 'fConc', 'fConc1', 'fAsym',
+                'fM3Long', 'fM3Trans', 'fAlpha', 'fDist', 'class']
+data = pd.read_csv(file_path, header=None, names=column_names)
+
+# 1. Data Exploration and Visualization
+print("\n=== Data Exploration ===")
+print("Dataset shape:", data.shape)
+print("\nClass distribution:")
+print(data['class'].value_counts())
+
+plt.figure(figsize=(8, 5))
+sns.countplot(x='class', data=data)
+plt.title('Original Class Distribution')
+plt.tight_layout()
+plt.savefig('class_distribution.png')
+plt.show()
+
+# 2. Data Balancing
+df_gamma = data[data['class'] == 'g']
+df_hadron = data[data['class'] == 'h']
+
+df_gamma_downsampled = resample(df_gamma, replace=False, n_samples=len(df_hadron), random_state=42)
+balanced_data = pd.concat([df_gamma_downsampled, df_hadron])
+
+plt.figure(figsize=(8, 5))
+sns.countplot(x='class', data=balanced_data)
+plt.title('Balanced Class Distribution')
+plt.tight_layout()
+plt.savefig('balanced_distribution.png')
+plt.show()
+
+balanced_data['class'] = balanced_data['class'].map({'h': 0, 'g': 1})
+
+# 3. Data Splitting
+X = balanced_data.drop('class', axis=1)
+y = balanced_data['class']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# 4. Model Training and Evaluation
+def evaluate_model(model, X_test, y_test, model_name):
+    y_pred = model.predict(X_test)
+    y_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, "predict_proba") else None
+
+    metrics = {
+        'Accuracy': accuracy_score(y_test, y_pred),
+        'Precision': precision_score(y_test, y_pred),
+        'Recall': recall_score(y_test, y_pred),
+        'F1': f1_score(y_test, y_pred),
+        'Confusion Matrix': confusion_matrix(y_test, y_pred)
+    }
+
+    # Plot confusion matrix
+    plt.figure(figsize=(6, 5))
+    sns.heatmap(metrics['Confusion Matrix'], annot=True, fmt='d', cmap='Blues')
+    plt.title(f'{model_name} Confusion Matrix')
+    plt.ylabel('Actual')
+    plt.xlabel('Predicted')
+    plt.tight_layout()
+    plt.savefig(f'confusion_matrix_{model_name.lower().replace(" ", "_")}.png')
+    plt.show()
+
+    if y_proba is not None:
+        fpr, tpr, _ = roc_curve(y_test, y_proba)
+        roc_auc = auc(fpr, tpr)
+
+        plt.figure(figsize=(8, 6))
+        plt.plot(fpr, tpr, label=f'ROC curve (AUC = {roc_auc:.2f})')
+        plt.plot([0, 1], [0, 1], 'k--')
+        plt.title(f'{model_name} ROC Curve')
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(f'roc_curve_{model_name.lower().replace(" ", "_")}.png')
+        plt.show()
+
+        metrics['ROC AUC'] = roc_auc
+
+    return metrics
+
+# Initialize results storage
+results = []
+
+# a. Decision Tree
+print("\n=== Decision Tree ===")
+dt = DecisionTreeClassifier(max_depth=3, random_state=42)
+dt.fit(X_train, y_train)
+
+plt.figure(figsize=(20, 10))
+plot_tree(dt, feature_names=X.columns, class_names=['Hadron', 'Gamma'], filled=True, rounded=True)
+plt.title("Decision Tree Visualization")
+plt.tight_layout()
+plt.savefig('decision_tree.png')
+plt.show()
+
+dt_metrics = evaluate_model(dt, X_test, y_test, "Decision Tree")
+for metric, value in dt_metrics.items():
+    if metric != 'Confusion Matrix':
+        print(f"{metric}: {value:.4f}" if isinstance(value, float) else f"{metric}: {value}")
+results.append({'Model': 'Decision Tree', **dt_metrics})
+
+# b. AdaBoost
+print("\n=== AdaBoost ===")
+ab = AdaBoostClassifier(n_estimators=100, random_state=42)
+ab.fit(X_train, y_train)
+
+plt.figure(figsize=(10, 6))
+pd.Series(ab.feature_importances_, index=X.columns).sort_values().plot(kind='barh')
+plt.title('AdaBoost Feature Importance')
+plt.tight_layout()
+plt.savefig('adaboost_feature_importance.png')
+plt.show()
+
+ab_metrics = evaluate_model(ab, X_test, y_test, "AdaBoost")
+for metric, value in ab_metrics.items():
+    if metric != 'Confusion Matrix':
+        print(f"{metric}: {value:.4f}" if isinstance(value, float) else f"{metric}: {value}")
+results.append({'Model': 'AdaBoost', **ab_metrics})
+
+# c. Random Forest
+print("\n=== Random Forest ===")
+rf = RandomForestClassifier(n_estimators=100, random_state=42)
+rf.fit(X_train, y_train)
+
+plt.figure(figsize=(10, 6))
+pd.Series(rf.feature_importances_, index=X.columns).sort_values().plot(kind='barh')
+plt.title('Random Forest Feature Importance')
+plt.tight_layout()
+plt.savefig('random_forest_feature_importance.png')
+plt.show()
+
+rf_metrics = evaluate_model(rf, X_test, y_test, "Random Forest")
+for metric, value in rf_metrics.items():
+    if metric != 'Confusion Matrix':
+        print(f"{metric}: {value:.4f}" if isinstance(value, float) else f"{metric}: {value}")
+results.append({'Model': 'Random Forest', **rf_metrics})
+
+# d. Naive Bayes
+print("\n=== Naive Bayes ===")
+nb = GaussianNB()
+nb.fit(X_train, y_train)
+
+nb_metrics = evaluate_model(nb, X_test, y_test, "Naive Bayes")
+for metric, value in nb_metrics.items():
+    if metric != 'Confusion Matrix':
+        print(f"{metric}: {value:.4f}" if isinstance(value, float) else f"{metric}: {value}")
+results.append({'Model': 'Naive Bayes', **nb_metrics})
+
+# 5. Results Comparison
+results_df = pd.DataFrame(results)
+
+plt.figure(figsize=(12, 6))
+results_df.set_index('Model')[['Accuracy', 'Precision', 'Recall', 'F1']].plot(kind='bar', rot=0)
+plt.title('Model Performance Comparison')
+plt.ylabel('Score')
+plt.ylim(0, 1)
+plt.legend(loc='lower right')
+plt.tight_layout()
+plt.savefig('model_comparison.png')
+plt.show()
+
+# Save results
+results_df.to_csv('model_results.csv', index=False)
+print("\n=== Results saved to model_results.csv ===")
+print(results_df)
+
+input("\nPress Enter to exit and close all plots...")
+plt.close('all')
