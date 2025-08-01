@@ -1,3 +1,7 @@
+
+ [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+
+ 
  Evaluating-classification-models
  Given the MAGIC gamma telescope dataset that can be obtained using this Link. This dataset 
  is generated to simulate registration of high energy gamma particles in a ground-based atmo- 
